@@ -10,28 +10,28 @@ const STRATEGY_TEMPLATES = {
     desc: 'Buy oversold, sell overbought',
     badge: 'RSI',
     badgeColor: 'text-indigo-400 bg-indigo-400/10 border-indigo-400/30',
-    code: `# Aegis RSI agent\\n\\nimport pandas_ta as ta\\nfrom aegis.sdk import Agent, Signal\\n\\nclass RSIAgent(Agent):\\n    def __init__(self):\\n        self.period = 14\\n        self.oversold = 30\\n        self.overbought = 70\\n\\n    def on_candle(self, candle, hist):\\n        rsi = ta.rsi(hist['close'], length=self.period)\\n        val = rsi.iloc[-1]\\n\\n        if val < self.oversold:\\n            return Signal.BUY\\n        elif val > self.overbought:\\n            return Signal.SELL\\n        \\n        return Signal.HOLD`
+    code: `# Quantive RSI agent\\n\\nimport pandas_ta as ta\\nfrom quantive.sdk import Agent, Signal\\n\\nclass RSIAgent(Agent):\\n    def __init__(self):\\n        self.period = 14\\n        self.oversold = 30\\n        self.overbought = 70\\n\\n    def on_candle(self, candle, hist):\\n        rsi = ta.rsi(hist['close'], length=self.period)\\n        val = rsi.iloc[-1]\\n\\n        if val < self.oversold:\\n            return Signal.BUY\\n        elif val > self.overbought:\\n            return Signal.SELL\\n        \\n        return Signal.HOLD`
   },
   'momentum': {
     name: 'Momentum agent',
     desc: 'Follow N-day price trend',
     badge: 'Momentum',
     badgeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
-    code: `# Aegis Momentum agent\\n\\nimport pandas_ta as ta\\nfrom aegis.sdk import Agent, Signal\\n\\nclass MomentumAgent(Agent):\\n    def __init__(self):\\n        self.ma_period = 50\\n\\n    def on_candle(self, candle, hist):\\n        ma = ta.sma(hist['close'], length=self.ma_period)\\n        current_ma = ma.iloc[-1]\\n\\n        if candle['close'] > current_ma:\\n            return Signal.BUY\\n        elif candle['close'] < current_ma:\\n            return Signal.SELL\\n        \\n        return Signal.HOLD`
+    code: `# Quantive Momentum agent\\n\\nimport pandas_ta as ta\\nfrom quantive.sdk import Agent, Signal\\n\\nclass MomentumAgent(Agent):\\n    def __init__(self):\\n        self.ma_period = 50\\n\\n    def on_candle(self, candle, hist):\\n        ma = ta.sma(hist['close'], length=self.ma_period)\\n        current_ma = ma.iloc[-1]\\n\\n        if candle['close'] > current_ma:\\n            return Signal.BUY\\n        elif candle['close'] < current_ma:\\n            return Signal.SELL\\n        \\n        return Signal.HOLD`
   },
   'reversion': {
     name: 'Mean reversion',
     desc: 'Snap back to average',
     badge: 'Reversion',
     badgeColor: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
-    code: `# Aegis Mean Reversion\\n\\nimport pandas_ta as ta\\nfrom aegis.sdk import Agent, Signal\\n\\nclass MeanReversionAgent(Agent):\\n    def __init__(self):\\n        self.z_threshold = 2.0\\n\\n    def on_candle(self, candle, hist):\\n        z_score = ta.zscore(hist['close'], length=20).iloc[-1]\\n\\n        if z_score < -self.z_threshold:\\n            return Signal.BUY\\n        elif z_score > self.z_threshold:\\n            return Signal.SELL\\n        \\n        return Signal.HOLD`
+    code: `# Quantive Mean Reversion\\n\\nimport pandas_ta as ta\\nfrom quantive.sdk import Agent, Signal\\n\\nclass MeanReversionAgent(Agent):\\n    def __init__(self):\\n        self.z_threshold = 2.0\\n\\n    def on_candle(self, candle, hist):\\n        z_score = ta.zscore(hist['close'], length=20).iloc[-1]\\n\\n        if z_score < -self.z_threshold:\\n            return Signal.BUY\\n        elif z_score > self.z_threshold:\\n            return Signal.SELL\\n        \\n        return Signal.HOLD`
   },
   'multi': {
     name: 'Multi-signal',
     desc: 'RSI + volume + volatility',
     badge: 'Multi',
     badgeColor: 'text-pink-400 bg-pink-400/10 border-pink-400/30',
-    code: `# Aegis Multi-signal\\n\\nfrom aegis.sdk import Agent, Signal\\n\\nclass MultiAgent(Agent):\\n    def on_candle(self, candle, hist):\\n        # Complex logic goes here\\n        pass`
+    code: `# Quantive Multi-signal\\n\\nfrom quantive.sdk import Agent, Signal\\n\\nclass MultiAgent(Agent):\\n    def on_candle(self, candle, hist):\\n        # Complex logic goes here\\n        pass`
   }
 };
 
@@ -198,7 +198,7 @@ function App() {
              <PenTool className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-[16px] font-bold text-white tracking-wide leading-tight">Aegis</h1>
+            <h1 className="text-[16px] font-bold text-white tracking-wide leading-tight">Quantive</h1>
             <div className="text-[11px] text-[#858585]">AI trading infra</div>
           </div>
         </div>

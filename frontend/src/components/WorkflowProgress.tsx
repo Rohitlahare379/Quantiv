@@ -31,7 +31,7 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({ currentStep }) => {
               isActive ? 'border-indigo-400 text-indigo-400 animate-pulse' :
               'border-[#444] text-[#444]'
             }`}>
-              {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <div className="text-[10px] font-bold">{index + 1}</div>}
+              {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : isActive ? <Icon className="w-3.5 h-3.5" /> : <div className="text-[10px] font-bold">{index + 1}</div>}
             </div>
             <span className={`text-[11px] font-bold uppercase tracking-widest ${
               isCompleted ? 'text-white' :

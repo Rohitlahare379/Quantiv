@@ -1,85 +1,85 @@
-# Aegis: Autonomous Quant Evaluation Platform
+# Quantive: AI-Native Autonomous Quant Strategy Orchestrator
 
-Aegis is an AI-native platform for high-fidelity quantitative strategy evaluation, autonomous robustness testing, and intelligent paper trading.
+**Quantive** is an end-to-end autonomous pipeline for high-fidelity quantitative strategy evaluation. It bridges the gap between idealistic backtests and live market reality using a **Multi-Agent "Judge" Architecture** and **Storm Simulation** infrastructure.
 
-## 🚀 Quick Start (Hackathon Demo Flow)
+Built for the **2026 Autonomous Quant Hackathon — Sponsored Track (Problem 03/04).**
+
+---
+
+## 🏗 Multi-Agent Autonomy
+Quantive replaces human steering with a specialized multi-agent workflow. The system doesn't just calculate metrics; it applies **deep reasoning** to determine strategy suitability.
+
+*   **Regime Classifier Agent**: Analyzes market conditions (Volatility, Trend) and historical dataset integrity via Binance APIs.
+*   **Robustness Agent**: Stress-tests strategies by comparing "Ideal" returns against "Live" returns with simulated slippage and 1-candle latency.
+*   **Deployment Agent**: Synthesizes agent findings into a final **DEPLOY / REJECT** verdict with a verifiable reasoning trace.
+
+---
+
+## 🛠 Features by "Room"
+
+### Room 1: Strategy Engineering (Workshop)
+*   **Deterministic Persistence**: Strategies are reliably saved and synchronized across the workspace.
+*   **Dynamic Validation**: Real-time Python code loading and dry-run validation against live market data.
+*   **Strategy Templates**: Jumpstart development with RSI, Momentum, and Mean Reversion patterns.
+
+### Room 2: Storm Simulator (Replay)
+*   **Custom Data Layers**: Select specific historical ranges (e.g., COVID Crash, FTX Collapse) or set custom dates.
+*   **On-Demand Ingestion**: Automatically fetches missing historical data directly from **Binance** via async background workers.
+*   **Friction Modeling**: Live streaming of "Storm Metrics" — accounting for exchange-grade slippage and execution latency.
+
+### Room 3: Autonomous Evaluation (Orchestrator)
+*   **Omium SDK Tracing**: Every meaningful action is instrumented with **verifiable causal traces** for judge auditability.
+*   **Intelligent Reporting**: Generates exhaustive **Operational Intelligence Reports** (PDF/JSON).
+*   **Async Side Effects**: Integrated Slack notifications, SMTP email delivery, and generic webhook dispatches.
+
+---
+
+## ⚡ Quick Start
 
 ### 1. Prerequisites
 - Python 3.9+
 - Node.js 18+
-- SQLite (included)
+- Binance API Key (for on-demand historical data)
 
-### 2. Environment Setup
-
-#### Backend
-Create `backend/.env`:
-```env
-DATABASE_URL=sqlite:///./aegis.db
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/... (optional)
-GENERIC_WEBHOOK_URL=http://localhost:5000/callback (optional)
-```
-
-#### Frontend
-Create `frontend/.env`:
-```env
-VITE_API_BASE_URL=http://localhost:8000
-VITE_WS_BASE_URL=ws://localhost:8000
-```
-
-### 3. Installation
+### 2. Installation
 
 **Backend:**
 ```bash
 cd backend
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
+python3 main.py # Initializes database and checks connectivity
 ```
 
 **Frontend:**
 ```bash
 cd frontend
 npm install
-```
-
-### 4. Running the Platform
-
-**Start Backend:**
-```bash
-cd backend
-uvicorn main:app --reload --port 8000
-```
-*Verify: `http://localhost:8000/health` should return `{"status": "ok"}`.*
-
-**Start Frontend:**
-```bash
-cd frontend
 npm run dev
 ```
-*Access: `http://localhost:5173`*
+
+### 3. Environment Configuration
+Create `backend/.env`:
+```env
+DATABASE_URL=sqlite:///./quantive.db
+BINANCE_API_KEY=your_key
+BINANCE_API_SECRET=your_secret
+SLACK_WEBHOOK_URL=your_slack_webhook
+```
 
 ---
 
-## 🛠 Project Structure
-
-- **Room 1 (Workshop):** Strategy development using Python SDK. Features a real-time validation pipeline.
-- **Room 2 (Simulator):** Triple-portfolio simulation (Ideal, Slippage, Latency) with live WebSocket streaming.
-- **Room 3 (Orchestrator):** Multi-agent autonomous evaluation. Sequences Regime Classification, Robustness Testing, and Deployment Decision agents.
-
-## 📊 Demo Workflow
-1. **Develop:** Load a template in Room 1 (e.g., RSI).
-2. **Validate:** Click **RUN** to perform a syntax and dry-run check.
-3. **Simulate:** Navigate to Room 2 and click **RUN SIMULATION**. Observe the live equity curve and friction analysis.
-4. **Evaluate:** Once simulated, navigate to Room 3. Click **START AUTONOMOUS WORKFLOW**.
-5. **Trace:** Observe the **Causality Trace** as agents analyze the strategy.
-6. **Report:** Export the final **Operational Intelligence Report** (PDF/JSON).
+## 📈 Tech Stack
+- **Backend**: FastAPI (Python), SQLAlchemy, Pydantic, WebSocket (Live Streaming).
+- **Frontend**: React (Vite), Tailwind CSS, Lucide Icons, Recharts (Real-time Equity Curve).
+- **Data**: Binance REST/WS API for historical and live data.
+- **Observability**: **Omium SDK v1** for causal workflow tracing.
 
 ---
 
-## 🛡 System Health Checks
-Aegis performs the following checks on startup:
-- **Environment:** Validates `.env` variables and API keys.
-- **Database:** Verifies connectivity to SQLite/PostgreSQL.
-- **Market Data:** Checks availability of historical datasets for replay.
-- **Orchestrator:** Ensures all AI agents are initialized and reachable.
+## 🛡 Verifiability & Omium Tracing
+Quantive is fully instrumented for the **Bonus Trace Track**. Every execution produces a trace on the Omium dashboard (instrumented via `⚡ [OMIUM-v1]` logs). 
+- **Causal Linking**: Each agent step is parented to the orchestrator start.
+- **Complete Coverage**: Tracing includes validation, simulation, trade execution, and external side effects.
 
 ---
-*Built for the 2026 Autonomous Quant Hackathon.*
+*Built with ❤️ for the future of Autonomous Finance.*

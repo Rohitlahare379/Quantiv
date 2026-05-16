@@ -5,6 +5,7 @@ from datetime import datetime
 class StrategyCreate(BaseModel):
     name: str
     code: str
+    template_id: Optional[str] = "rsi"
     asset: Optional[str] = "BTCUSDT"
     timeframe: Optional[str] = "1h"
     parameters: Optional[Dict[str, Any]] = None

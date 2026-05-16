@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, MoreVertical } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 interface WorkspaceSidebarProps {
   savedStrategies: any[];
@@ -33,7 +33,14 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
                  }`}
                  onClick={() => loadStrategy(s)}
                >
-                 <span className="text-[13px] font-medium truncate flex-1">{s.name}</span>
+                 <div className="flex flex-col truncate flex-1">
+                   <span className="text-[13px] font-medium truncate">{s.name}</span>
+                   {s.template_id && STRATEGY_TEMPLATES[s.template_id] && (
+                     <span className={`text-[9px] font-bold w-fit mt-0.5 px-1.5 py-0 rounded ${STRATEGY_TEMPLATES[s.template_id].badgeColor}`}>
+                       {STRATEGY_TEMPLATES[s.template_id].badge}
+                     </span>
+                   )}
+                 </div>
                  <button 
                    onClick={(e) => { e.stopPropagation(); deleteStrategy(s.id); }}
                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"

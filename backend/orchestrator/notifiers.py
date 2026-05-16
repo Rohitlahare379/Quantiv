@@ -4,12 +4,13 @@ import httpx
 import asyncio
 from typing import Dict, Any, Optional
 from datetime import datetime
+from omium.sdk import trace
 
 logger = logging.getLogger("WorkflowNotifier")
 
 class WorkflowNotifier:
     """
-    Handles external side effects for the Aegis Orchestrator.
+    Handles external side effects for the Quantive Orchestrator.
     Supports Slack and generic Webhooks with basic retry logic.
     """
     def __init__(self, slack_url: Optional[str] = None, webhook_url: Optional[str] = None):
@@ -60,18 +61,20 @@ class WorkflowNotifier:
             "attachments": [
                 {
                     "color": color,
-                    "title": f"Aegis Workflow: {payload['event_type']}",
+                    "title": f"Quantive Workflow: {payload['event_type']}",
                     "text": f"*Strategy:* {payload['strategy']['name']}\n*Asset:* {payload['strategy']['asset']}\n*Decision:* {payload['results']['deployment_decision'] or 'PENDING'}\n*Reasoning:* {payload['results']['reasoning'] or 'N/A'}",
-                    "footer": "Aegis Autonomous System"
+                    "footer": "Quantive Autonomous System"
                 }
             ]
         }
 
         await self._do_post_with_retry("Slack", self.slack_url, slack_payload, max_retries)
+        trace("SIDE_EFFECTS", "SLACK_NOTIFICATION_SENT", "Workflow event dispatched to Slack workspace")
 
     async def _send_webhook_with_retry(self, payload: Dict[str, Any], max_retries: int = 3):
         if not self.webhook_url: return
         await self._do_post_with_retry("Generic Webhook", self.webhook_url, payload, max_retries)
+        trace("SIDE_EFFECTS", "WEBHOOK_FIRED", "Operational data transmitted via generic webhook")
 
     async def _do_post_with_retry(self, name: str, url: str, payload: Dict[str, Any], max_retries: int):
         retries = 0

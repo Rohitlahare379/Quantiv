@@ -10,7 +10,7 @@ from simulator.signals.enums import Signal
 
 class Strategy(ABC):
     """
-    Standardized base class for all Aegis trading strategies.
+    Standardized base class for all Quantive trading strategies.
     Any custom strategy loaded from PostgreSQL must inherit from this
     and implement the on_candle method.
     """

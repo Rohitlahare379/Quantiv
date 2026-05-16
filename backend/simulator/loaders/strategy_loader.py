@@ -32,13 +32,22 @@ class StrategyLoader:
 
     @staticmethod
     def load_from_string(code: str) -> Optional[Type[Strategy]]:
-        # Strip mock UI imports
-        code = code.replace("from aegis.sdk import Agent, Signal", "")
-        code = code.replace("from aegis.sdk import Agent", "")
-        code = code.replace("from simulator.interfaces.strategy import Strategy", "")
-        code = code.replace("from simulator.signals.signal import Signal", "")
-        code = code.replace("from simulator.signals.enums import Signal", "")
-        code = code.replace("import pandas_ta as ta", "")
+        # Robustly strip mock UI imports using regex to handle variations in spacing/indentation
+        import re
+        # Strip lines containing quantive.sdk or aegis.sdk imports
+        lines = code.splitlines()
+        filtered_lines = []
+        for line in lines:
+            if re.search(r"(from|import)\s+(quantive|aegis)\.sdk", line, re.IGNORECASE):
+                continue
+            # Also strip other common mock imports from UI templates
+            if "from simulator.interfaces.strategy import Strategy" in line: continue
+            if "from simulator.signals.signal import Signal" in line: continue
+            if "from simulator.signals.enums import Signal" in line: continue
+            if "import pandas_ta as ta" in line: continue
+            filtered_lines.append(line)
+        
+        code = "\n".join(filtered_lines)
         
         # Create a restricted globals dictionary with only necessary dependencies
         restricted_globals = {
@@ -99,4 +108,5 @@ class StrategyLoader:
         except Exception as e:
             error_msg = f"{type(e).__name__}: {str(e)}"
             logger.error(f"Failed to load strategy code: {error_msg}")
+            logger.error(f"Attempted to execute code:\n{code}")
             raise ValueError(error_msg)

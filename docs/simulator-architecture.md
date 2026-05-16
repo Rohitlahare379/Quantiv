@@ -1,4 +1,4 @@
-# Aegis Room 2: Simulator Architecture
+# Quantive Room 2: Simulator Architecture
 
 ## Overview
 The Simulator (Room 2) is designed to backtest user-defined strategies against historical market data. To ensure determinism, safety, and maintainability, the simulation architecture is heavily decoupled into isolated responsibilities.

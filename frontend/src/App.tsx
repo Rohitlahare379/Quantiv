@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { PenTool, Target, TrendingUp, Rocket } from 'lucide-react';
 import Workshop from './components/Workshop';
 import Simulator from './components/Simulator';
@@ -12,36 +12,31 @@ const STRATEGY_TEMPLATES = {
     desc: 'Buy oversold, sell overbought',
     badge: 'RSI',
     badgeColor: 'text-indigo-400 bg-indigo-400/10 border-indigo-400/30',
-    code: `# Aegis RSI agent\n\nimport pandas_ta as ta\nfrom aegis.sdk import Agent, Signal\n\nclass RSIAgent(Agent):\n    def __init__(self):\n        self.period = 14\n        self.oversold = 30\n        self.overbought = 70\n\n    def on_candle(self, candle, hist):\n        rsi = ta.rsi(hist['close'], length=self.period)\n        val = rsi.iloc[-1]\n\n        if val < self.oversold:\n            return Signal.BUY\n        elif val > self.overbought:\n            return Signal.SELL\n        \n        return Signal.HOLD`
   },
   'momentum': {
     name: 'Momentum agent',
     desc: 'Follow N-day price trend',
     badge: 'Momentum',
     badgeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
-    code: `# Aegis Momentum agent\n\nimport pandas_ta as ta\nfrom aegis.sdk import Agent, Signal\n\nclass MomentumAgent(Agent):\n    def __init__(self):\n        self.ma_period = 50\n\n    def on_candle(self, candle, hist):\n        ma = ta.sma(hist['close'], length=self.ma_period)\n        current_ma = ma.iloc[-1]\n\n        if candle['close'] > current_ma:\n            return Signal.BUY\n        elif candle['close'] < current_ma:\n            return Signal.SELL\n        \n        return Signal.HOLD`
   },
   'reversion': {
     name: 'Mean reversion',
     desc: 'Snap back to average',
     badge: 'Reversion',
     badgeColor: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
-    code: `# Aegis Mean Reversion\n\nimport pandas_ta as ta\nfrom aegis.sdk import Agent, Signal\n\nclass MeanReversionAgent(Agent):\n    def __init__(self):\n        self.z_threshold = 2.0\n\n    def on_candle(self, candle, hist):\n        z_score = ta.zscore(hist['close'], length=20).iloc[-1]\n\n        if z_score < -self.z_threshold:\n            return Signal.BUY\n        elif z_score > self.z_threshold:\n            return Signal.SELL\n        \n        return Signal.HOLD`
   },
   'multi': {
     name: 'Multi-signal',
     desc: 'RSI + volume + volatility',
     badge: 'Multi',
     badgeColor: 'text-pink-400 bg-pink-400/10 border-pink-400/30',
-    code: `# Aegis Multi-signal\n\nfrom aegis.sdk import Agent, Signal\n\nclass MultiAgent(Agent):\n    def on_candle(self, candle, hist):\n        # Complex logic goes here\n        pass`
   }
 };
 
 const ROOMS = [
-  { id: 'r1', name: 'Workshop', icon: PenTool, label: 'R1' },
-  { id: 'r2', name: 'Simulator', icon: Target, label: 'R2' },
-  { id: 'r3', name: 'Paper trade', icon: TrendingUp, label: 'R3' },
-  { id: 'r4', name: 'Live', icon: Rocket, label: 'R4' },
+  { id: 'r1', name: 'Strategy Workshop (R1)', icon: PenTool, label: 'R1' },
+  { id: 'r2', name: 'Storm Simulator (R2)', icon: Target, label: 'R2' },
+  { id: 'r3', name: 'Autonomous Evaluation (R3)', icon: TrendingUp, label: 'R3' },
 ];
 
 interface SimMetrics {
@@ -53,13 +48,13 @@ interface SimMetrics {
 
 function App() {
   const [activeStrategy, setActiveStrategy] = useState<string>('rsi');
-  const [code, setCode] = useState<string>(STRATEGY_TEMPLATES['rsi'].code);
+  const [code, setCode] = useState<string>('');
   const [activeRoom, setActiveRoom] = useState('r1');
-    const [activeRegime, setActiveRegime] = useState('full_history');
+  const [activeRegime, setActiveRegime] = useState('full_history');
   const [customStart, setCustomStart] = useState('2021-01-01');
   const [customEnd, setCustomEnd] = useState('2021-06-01');
   
-  const [params, setParams] = useState({ period: 14, oversold: 30, overbought: 70, positionSize: 10 });
+  const [params, setParams] = useState({ period: 14, oversold: 45, overbought: 55, positionSize: 10 });
   const [activeAsset, setActiveAsset] = useState('BTCUSDT');
   const [activeTimeframe, setActiveTimeframe] = useState('1h');
   
@@ -70,7 +65,7 @@ function App() {
 
   const [simStatus, setSimStatus] = useState<'READY' | 'LOADING' | 'REPLAYING' | 'PAUSED' | 'STOPPED' | 'COMPLETED' | 'FAILED'>('READY');
   const [ws, setWs] = useState<WebSocket | null>(null);
-  const [balance, setBalance] = useState<number | null>(null);
+  const [, setBalance] = useState<number | null>(null);
   const [simProgress, setSimProgress] = useState<{time: string, price: number, pnl?: number, tradeCount?: number, metrics?: SimMetrics, candles_processed?: number, total_candles?: number, percentage?: number, speed?: number, regime?: string} | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [trades, setTrades] = useState<any[]>([]);
@@ -83,19 +78,26 @@ function App() {
   // Global Workflow State
   const [workflowStep, setWorkflowStep] = useState<'EDITING' | 'VALIDATED' | 'SIMULATING' | 'SIMULATED' | 'EVALUATING' | 'EVALUATED'>('EDITING');
   const [globalMetrics, setGlobalMetrics] = useState<any>(null);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
-     setValidationStatus('idle');
-     setValidationMessage('Unsaved changes');
-     if (workflowStep !== 'EDITING') {
+     // Skip setting dirty on initial load if we just loaded a strategy
+     if (validationMessage === 'Strategy loaded' || validationMessage === 'Template loaded') {
+        return;
+     }
+
+     if (validationStatus === 'valid' || workflowStep !== 'EDITING') {
+        setValidationStatus('idle');
+        setValidationMessage('Unsaved changes');
         setWorkflowStep('EDITING');
         setGlobalMetrics(null);
+        setIsDirty(true);
      }
   }, [code, activeAsset, params, activeTimeframe]);
 
   useEffect(() => {
      fetchStrategies();
-     console.log("%c--- Aegis Frontend Initialized ---", "color: #6366f1; font-weight: bold; font-size: 12px;");
+     console.log("%c--- Quantive Frontend Initialized ---", "color: #6366f1; font-weight: bold; font-size: 12px;");
      console.log("API Base:", import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
      console.log("WebSocket Base:", import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000');
   }, []);
@@ -112,50 +114,55 @@ function App() {
      }
   };
 
-  const saveStrategy = async (nameOverride?: string) => {
-     const nameToSave = nameOverride || strategyName;
-     const url = activeStrategyId 
-        ? `http://localhost:8000/api/strategies/${activeStrategyId}`
-        : 'http://localhost:8000/api/strategies';
-     const method = activeStrategyId ? 'PUT' : 'POST';
+  const saveStrategy = async (nameOverride?: any) => {
+      const nameToSave = (typeof nameOverride === 'string') ? nameOverride : strategyName;
+      const url = activeStrategyId 
+         ? `http://localhost:8000/api/strategies/${activeStrategyId}`
+         : 'http://localhost:8000/api/strategies';
+      const method = activeStrategyId ? 'PUT' : 'POST';
 
-     try {
-        const res = await fetch(url, {
-           method: method,
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-              name: nameToSave,
-              code: code,
-              asset: activeAsset,
-              timeframe: activeTimeframe,
-              parameters: params
-           })
-        });
-        if (res.ok) {
-           const data = await res.json();
-           setActiveStrategyId(data.id);
-           setStrategyName(data.name);
-           fetchStrategies();
-           setValidationStatus('idle');
-           setValidationMessage('Strategy saved');
-        }
-     } catch (e) {
-        console.error('Failed to save strategy:', e);
-     }
+      try {
+         const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               name: nameToSave,
+               code: code,
+               template_id: activeStrategy,
+               asset: activeAsset,
+               timeframe: activeTimeframe,
+               parameters: params
+            })
+         });
+         if (res.ok) {
+            const data = await res.json();
+            setActiveStrategyId(data.id);
+            setStrategyName(data.name);
+            fetchStrategies();
+            setValidationStatus('idle');
+            setValidationMessage('Strategy saved');
+            setIsDirty(false);
+         }
+      } catch (e) {
+         console.error('Failed to save strategy:', e);
+      }
   };
 
-  const loadStrategy = async (strategy: any) => {
-     setActiveStrategyId(strategy.id);
-     setStrategyName(strategy.name);
-     setCode(strategy.code);
-     setActiveAsset(strategy.asset || 'BTCUSDT');
-     setActiveTimeframe(strategy.timeframe || '1h');
-     if (strategy.parameters) {
-        setParams(strategy.parameters);
-     }
-     setValidationStatus('idle');
-     setValidationMessage('Strategy loaded');
-  };
+   const loadStrategy = (strategy: any) => {
+      setActiveStrategyId(strategy.id);
+      setStrategyName(strategy.name);
+      setActiveStrategy(strategy.template_id || 'rsi');
+      setCode(strategy.code);
+      setActiveAsset(strategy.asset || 'BTCUSDT');
+      setActiveTimeframe(strategy.timeframe || '1h');
+      if (strategy.parameters) {
+         setParams(strategy.parameters);
+      }
+      setValidationStatus('idle');
+      setValidationMessage('Strategy loaded');
+      setWorkflowStep('EDITING');
+      setIsDirty(false);
+   };
 
   const deleteStrategy = async (id: number) => {
      try {
@@ -208,6 +215,7 @@ function App() {
     setSimLogs([]);
     setTrades([]);
     setMetrics(null);
+    setGlobalMetrics(null);
     setSimProgress(null);
 
     socket.onopen = () => {
@@ -228,10 +236,22 @@ function App() {
       if (data.type === 'status') setSimStatus(data.status);
       if (data.type === 'init') setBalance(data.balance);
       if (data.type === 'update') {
-          setSimProgress(data);
-          // Merge live win_rate into metrics state for real-time display
-          if (data.win_rate !== undefined) {
-            setMetrics(prev => ({ ...prev, win_rate: data.win_rate }));
+          setSimProgress({ ...data.progress, ...data });
+          if (data.metrics) {
+            setGlobalMetrics((prev: any) => ({ ...(prev || {}), ...data.metrics }));
+          }
+          setMetrics((prev: any) => ({
+            ...(prev || {}),
+            ...(data.metrics || {}),
+            win_rate: data.win_rate ?? prev?.win_rate,
+            trade_count: data.trade_count ?? prev?.trade_count,
+          }));
+          if (data.signal) {
+            setSimLogs(prev => [{
+              timestamp: data.progress?.time || new Date().toISOString(),
+              message: `SIGNAL ${data.signal} @ ${Number(data.progress?.price || 0).toFixed(2)}`,
+              type: 'signal'
+            }, ...prev]);
           }
       }
       if (data.type === 'execution') {
@@ -245,7 +265,7 @@ function App() {
       if (data.type === 'complete') {
           setSimStatus('COMPLETED');
           setMetrics(data.metrics);
-          setGlobalMetrics(data.metrics);
+          setGlobalMetrics((prev: any) => ({ ...(prev || {}), ...data.metrics }));
           if (data.trades) setTrades(data.trades);
           setWorkflowStep('SIMULATED');
       }
@@ -266,7 +286,7 @@ function App() {
   const handleTemplateLoad = (id: string) => {
     const template = STRATEGY_TEMPLATES[id as keyof typeof STRATEGY_TEMPLATES];
     setActiveStrategy(id);
-    setCode(template.code);
+    // setCode(''); // Removed to allow code to persist until user manually clears it
     setActiveStrategyId(null);
     setStrategyName(template.name);
     setValidationStatus('idle');
@@ -282,7 +302,7 @@ function App() {
     <div className="flex h-screen bg-[#0d0d0e] text-[#cccccc] font-sans overflow-hidden">
       {/* Sidebar Navigation */}
       <div className="w-20 border-r border-[#333333] flex flex-col items-center py-8 bg-[#1e1e1e]">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl mb-12 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/20">A</div>
+        <div className="w-10 h-10 bg-indigo-600 rounded-xl mb-12 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/20">Q</div>
         <div className="flex flex-col space-y-8 flex-1">
           {ROOMS.map(room => (
             <button 
@@ -316,7 +336,7 @@ function App() {
           strategyName={strategyName}
           setStrategyName={setStrategyName}
           code={code}
-          setCode={setCode}
+          setCode={(nextCode) => setCode(nextCode || '')}
           activeAsset={activeAsset}
           setActiveAsset={setActiveAsset}
           activeTimeframe={activeTimeframe}
@@ -336,6 +356,12 @@ function App() {
           activeStrategy={activeStrategy}
           STRATEGY_TEMPLATES={STRATEGY_TEMPLATES}
           activeAsset={activeAsset}
+          activeRegime={activeRegime}
+          setActiveRegime={setActiveRegime}
+          customStart={customStart}
+          setCustomStart={setCustomStart}
+          customEnd={customEnd}
+          setCustomEnd={setCustomEnd}
           getRegimeName={getRegimeName}
           simStatus={simStatus}
           validationStatus={validationStatus}

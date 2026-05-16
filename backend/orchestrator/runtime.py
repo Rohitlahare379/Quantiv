@@ -10,6 +10,7 @@ from orchestrator.agents.deployment_agent import DeploymentAgent
 
 from orchestrator.notifiers import WorkflowNotifier
 import os
+from omium.sdk import trace
 
 logger = logging.getLogger("Orchestrator")
 
@@ -45,6 +46,7 @@ class Orchestrator:
             message="Autonomous evaluation pipeline started.",
             data={"strategy": context.strategy_name}
         ))
+        trace("ORCHESTRATOR", "STARTED", f"Autonomous evaluation pipeline initiated for {context.strategy_name}")
         logger.info(f"Starting workflow for strategy: {context.strategy_name}")
         asyncio.create_task(self.notifier.notify_workflow_event("WORKFLOW_START", context))
 
@@ -56,6 +58,7 @@ class Orchestrator:
                 stage=agent.agent_id,
                 message=f"Agent {agent.agent_id} began execution."
             ))
+            trace("ORCHESTRATOR", "AGENT_STARTED", f"Agent {agent.agent_id} beginning specialized analysis phase")
             
             success = await self._run_agent_with_retries(agent, context)
             
@@ -81,6 +84,7 @@ class Orchestrator:
                 message=f"Agent {agent.agent_id} completed successfully.",
                 duration_ms=duration
             ))
+            trace("ORCHESTRATOR", "AGENT_COMPLETED", f"Agent {agent.agent_id} finalized findings.", {"duration_ms": duration})
             asyncio.create_task(self.notifier.notify_workflow_event(f"AGENT_COMPLETE_{agent.agent_id.upper()}", context))
 
         self.state = "COMPLETED"
@@ -94,6 +98,7 @@ class Orchestrator:
             duration_ms=total_duration,
             data={"decision": context.deployment_decision}
         ))
+        trace("ORCHESTRATOR", "DECISION_GENERATED", f"Autonomous evaluation complete. Final Decision: {context.deployment_decision}", {"decision": context.deployment_decision, "total_duration_ms": total_duration})
         asyncio.create_task(self.notifier.notify_workflow_event("DECISION_GENERATED", context))
         logger.info(f"Workflow completed successfully for {context.strategy_name}. Decision: {context.deployment_decision}")
         return context

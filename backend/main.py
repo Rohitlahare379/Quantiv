@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
 import asyncio
+import math
+from datetime import datetime, timedelta, timezone
 
 from database import engine, Base, get_db, SessionLocal
 from sqlalchemy import text
@@ -23,15 +25,65 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger("AegisMain")
+logger = logging.getLogger("QuantiveMain")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+def seed_demo_market_data_if_empty():
+    """
+    Ensures the simulator has a deterministic local replay dataset.
+    This avoids the app appearing to run while replay metrics stay flat because
+    SQLite was started from a different cwd or historical ingestion never ran.
+    """
+    from market_data.storage.models import MarketCandle
+
+    db = SessionLocal()
+    try:
+        existing = db.query(MarketCandle).filter(
+            MarketCandle.symbol == "BTCUSDT",
+            MarketCandle.timeframe == "1h"
+        ).count()
+        if existing > 0:
+            return
+
+        logger.warning("No BTCUSDT 1h candles found. Seeding deterministic demo replay data.")
+        start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        records = []
+
+        for i in range(2500):
+            timestamp = start + timedelta(hours=i)
+            cycle = math.sin(i / 9.0) * 420
+            broader_cycle = math.sin(i / 53.0) * 850
+            trend = i * 1.8
+            close = 7200 + trend + cycle + broader_cycle
+            open_price = close - math.sin(i / 5.0) * 80
+            high = max(open_price, close) + 90 + abs(math.sin(i / 3.0) * 45)
+            low = min(open_price, close) - 90 - abs(math.cos(i / 4.0) * 45)
+            volume = 1200 + abs(math.sin(i / 7.0) * 600)
+
+            records.append(MarketCandle(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                timestamp=timestamp,
+                open=open_price,
+                high=high,
+                low=low,
+                close=close,
+                volume=volume,
+                source="demo_seed"
+            ))
+
+        db.bulk_save_objects(records)
+        db.commit()
+        logger.info("Seeded %s deterministic BTCUSDT 1h candles.", len(records))
+    finally:
+        db.close()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. Environment Validation
-    logger.info("--- Aegis System Startup ---")
+    logger.info("--- Quantive System Startup ---")
     issues = validate_environment()
     if issues:
         for issue in issues:
@@ -45,6 +97,7 @@ async def lifespan(app: FastAPI):
         db.execute(text("SELECT 1"))
         db.close()
         logger.info("Database connectivity verified.")
+        seed_demo_market_data_if_empty()
     except Exception as e:
         logger.error(f"Database connection failed: {str(e)}")
 
@@ -53,19 +106,19 @@ async def lifespan(app: FastAPI):
     logger.info(f"Initializing real-time market data streams for: {symbols}")
     task = asyncio.create_task(ws_client.start_stream(symbols, timeframe="1m"))
     
-    logger.info("Aegis Orchestrator initialized and ready.")
+    logger.info("Quantive Orchestrator initialized and ready.")
     yield
     
     # Shutdown
     logger.info("Shutting down market data streams...")
     task.cancel()
-    logger.info("Aegis System Shutdown complete.")
+    logger.info("Quantive System Shutdown complete.")
 
-app = FastAPI(title="Aegis Autonomous Evaluation Platform", lifespan=lifespan)
+app = FastAPI(title="Quantive Autonomous Evaluation Platform", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow frontend to access
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], # Specific origins required for credentials
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,7 +129,7 @@ app.include_router(simulator_router, prefix="/ws", tags=["Simulator"])
 
 @app.get("/")
 def read_root():
-    return {"message": "Aegis Room 1 Backend is running"}
+    return {"message": "Quantive Room 1 Backend is running"}
 
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
@@ -109,6 +162,10 @@ def save_strategy(strategy: schemas.StrategyCreate, db: Session = Depends(get_db
     db.add(new_strategy)
     db.commit()
     db.refresh(new_strategy)
+    
+    from omium.sdk import trace
+    trace("WORKSHOP", "STRATEGY_SAVED", f"Strategy '{new_strategy.name}' persisted to database", {"strategy_id": new_strategy.id})
+    
     return new_strategy
 
 @app.put("/api/strategies/{strategy_id}", response_model=schemas.StrategyResponse)
@@ -166,3 +223,20 @@ async def run_orchestration(context_data: dict, db: Session = Depends(get_db)):
     final_context = await orchestrator.execute_workflow(context)
     
     return final_context
+
+@app.post("/api/send-report")
+async def send_report(report_data: dict):
+    email = report_data.get("email")
+    if not email:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    # Simulate email sending - In a real production app, use smtplib or a service like SendGrid
+    logger.info(f"--- EMAIL REPORT OUTBOUND ---")
+    logger.info(f"To: {email}")
+    logger.info(f"Subject: Quantive Strategy Evaluation Report - {report_data.get('metadata', {}).get('strategy')}")
+    logger.info(f"Content: Strategy {report_data.get('metadata', {}).get('strategy')} for {report_data.get('metadata', {}).get('asset')} has been evaluated.")
+    logger.info(f"Decision: {report_data.get('evaluation', {}).get('decision')}")
+    logger.info(f"------------------------------")
+    
+    return {"status": "success", "message": f"Report successfully queued for {email}"}

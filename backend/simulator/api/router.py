@@ -16,6 +16,7 @@ from simulator.portfolio.manager import PortfolioManager
 from simulator.runtime.engine import StrategyRunner
 from simulator.metrics.calculator import MetricsCalculator
 from simulator.signals.enums import Signal
+from omium.sdk import trace
 
 import logging
 logger = logging.getLogger("SimulatorAPI")
@@ -31,9 +32,11 @@ import traceback
 
 @router.post("/validate/")
 async def validate_strategy(request: ValidationRequest):
+    trace("WORKSHOP", "VALIDATION_STARTED", "Starting strategy structure and dry-run validation")
     try:
         StrategyClass = StrategyLoader.load_from_string(request.code)
         if not StrategyClass:
+            trace("WORKSHOP", "VALIDATION_FAILED", "Structure error: No valid Strategy subclass found")
             return {"status": "error", "message": "Structure error: No valid Strategy subclass found in the provided code."}
             
         # Instantiate to check __init__
@@ -87,6 +90,7 @@ async def validate_strategy(request: ValidationRequest):
                 "traceback": traceback.format_exc()
             }
             
+        trace("WORKSHOP", "VALIDATION_COMPLETED", "Strategy passed dry-run and structure checks")
         return {"status": "success", "message": "Strategy validated successfully."}
     except Exception as e:
         logger.error(f"Validation error: {e}")
@@ -199,6 +203,25 @@ async def simulate_endpoint(websocket: WebSocket):
         replay_engine = ReplayEngine(replay_config)
         
         candle_count = await replay_engine.validate_dataset()
+        
+        # Dynamic Data Ingestion for Custom Ranges
+        if candle_count == 0 and regime_id == "custom":
+            logger.info(f"[Simulator] No local data for {symbol} ({timeframe}) in range {start_dt} to {end_dt}. Fetching from Binance...")
+            await websocket.send_json({"type": "status", "status": "FETCHING_DATA", "message": f"Fetching missing data for {symbol}..."})
+            
+            from market_data.ingestion.fetch_binance import BinanceIngester
+            from database import SessionLocal
+            
+            db = SessionLocal()
+            try:
+                ingester = BinanceIngester(db)
+                # Run ingestion in a thread to avoid blocking the event loop
+                await asyncio.to_thread(ingester.ingest_historical, symbol, timeframe, start_dt, end_dt)
+                # Re-validate after ingestion
+                candle_count = await replay_engine.validate_dataset()
+            finally:
+                db.close()
+
         if candle_count == 0:
             logger.error(f"[Simulator] No data found for {symbol} ({timeframe}) between {start_dt} and {end_dt}")
             await websocket.send_json({
@@ -229,6 +252,7 @@ async def simulate_endpoint(websocket: WebSocket):
         latency_queue = [] # Queue to hold signals for 1 candle latency
         
         # Send initial state
+        trace("SIMULATOR", "REPLAY_STARTED", f"Starting market replay for {symbol} on {regime_id} regime", {"symbol": symbol, "regime": regime_id})
         await websocket.send_json({
             "type": "status",
             "status": "LOADING"
@@ -316,6 +340,9 @@ async def simulate_endpoint(websocket: WebSocket):
                 }
             }
             
+            if decision.signal != Signal.HOLD:
+                trace("SIMULATOR", "TRADE_EXECUTED", f"Strategy generated {decision.signal.name} signal", {"symbol": symbol, "signal": decision.signal.name, "price": candle.close})
+            
             await websocket.send_json(update)
 
             if exec_record:
@@ -333,6 +360,7 @@ async def simulate_endpoint(websocket: WebSocket):
                 })
             
         # Calculate final metrics using Live portfolio
+        trace("SIMULATOR", "REPLAY_COMPLETED", "Market data stream exhausted. Calculating final performance metrics.")
         logger.info(f"[Simulator] Final Metrics Summary: Realized Trades: {len(portfolio_live.realized_pnls)}, Current Balance: {portfolio_live.state.current_balance:.2f}")
         
         metrics = MetricsCalculator.calculate(
@@ -341,12 +369,34 @@ async def simulate_endpoint(websocket: WebSocket):
             equity_curve=equity_live,
             trade_pnls=portfolio_live.realized_pnls
         )
+        trace("SIMULATOR", "METRICS_GENERATED", "Performance verification complete.", {"win_rate": metrics.win_rate, "sharpe": metrics.sharpe_ratio})
+        final_ret_ideal = ((portfolio_ideal.state.current_balance - 10000.0) / 10000.0) * 100
+        final_ret_slip = ((portfolio_slip.state.current_balance - 10000.0) / 10000.0) * 100
+        final_ret_live = ((portfolio_live.state.current_balance - 10000.0) / 10000.0) * 100
+        final_slippage_cost = final_ret_slip - final_ret_ideal
+        final_latency_cost = final_ret_live - final_ret_slip
+        final_live_vs_ideal_gap = final_ret_live - final_ret_ideal
+
+        evidence_metrics = {
+            **metrics.model_dump(),
+            "backtest_return": final_ret_ideal,
+            "slippage_adjusted_return": final_ret_slip,
+            "live_return": final_ret_live,
+            "slippage_cost": final_slippage_cost,
+            "latency_cost": final_latency_cost,
+            "live_vs_ideal_gap": final_live_vs_ideal_gap,
+            "friction_adjusted_pnl": portfolio_live.state.current_balance - 10000.0,
+            "final_balance": portfolio_live.state.current_balance,
+            "candles_processed": replay_engine.state.candles_processed,
+            "total_candles": candle_count,
+            "regime": regime_id
+        }
         
         from fastapi.encoders import jsonable_encoder
         await websocket.send_json(jsonable_encoder({
             "type": "complete",
             "status": "COMPLETED",
-            "metrics": metrics.model_dump(),
+            "metrics": evidence_metrics,
             "trades": [t.model_dump() for t in portfolio_live.trade_logs]
         }))
 

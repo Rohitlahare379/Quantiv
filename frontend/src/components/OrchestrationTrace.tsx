@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Clock, ChevronDown, ChevronRight, Info, Terminal, Timer } from 'lucide-react';
+import { Activity, ChevronDown, ChevronRight, Info, Terminal, Timer } from 'lucide-react';
 
 interface TraceEvent {
   agent_id: string;
@@ -26,7 +26,7 @@ const OrchestrationTrace: React.FC<OrchestrationTraceProps> = ({ traces, isOrche
   };
 
   const totalDuration = traces.length > 0 && traces[traces.length - 1].event_type === 'FINISH'
-    ? traces[traces.length - 1].duration_ms
+    ? traces[traces.length - 1].duration_ms || 0
     : 0;
 
   return (
@@ -96,9 +96,9 @@ const OrchestrationTrace: React.FC<OrchestrationTraceProps> = ({ traces, isOrche
                     <span className="text-[10px] font-bold text-[#555] uppercase tracking-widest">Metadata Context</span>
                  </div>
                  <pre className="text-[11px] text-emerald-400/80 leading-relaxed overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(event.data, null, 2)}
+                    {JSON.stringify(event.data || {}, null, 2)}
                  </pre>
-                 {Object.keys(event.data).length === 0 && <span className="text-[11px] text-[#444] italic">No extra metadata payload.</span>}
+                 {Object.keys(event.data || {}).length === 0 && <span className="text-[11px] text-[#444] italic">No extra metadata payload.</span>}
               </div>
             )}
           </div>

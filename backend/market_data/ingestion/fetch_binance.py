@@ -76,18 +76,37 @@ class BinanceIngester:
         return valid_records
 
     def store_candles(self, records: list[dict]):
-        """Bulk insert candles, ignoring duplicates safely using PostgreSQL ON CONFLICT."""
+        """Bulk insert candles, ignoring duplicates safely."""
         if not records:
             return 0
             
-        stmt = insert(MarketCandle).values(records)
-        on_conflict_stmt = stmt.on_conflict_do_nothing(
-            index_elements=['symbol', 'timeframe', 'timestamp', 'source']
-        )
-        
-        result = self.db.execute(on_conflict_stmt)
-        self.db.commit()
-        return result.rowcount
+        try:
+            # Try PostgreSQL-specific upsert
+            from sqlalchemy.dialects.postgresql import insert as pg_insert
+            stmt = pg_insert(MarketCandle).values(records)
+            on_conflict_stmt = stmt.on_conflict_do_nothing(
+                index_elements=['symbol', 'timeframe', 'timestamp', 'source']
+            )
+            result = self.db.execute(on_conflict_stmt)
+            self.db.commit()
+            return result.rowcount
+        except Exception:
+            self.db.rollback()
+            try:
+                # Fallback to SQLite or generic bulk insert
+                # On SQLite, we can use prefix_with("OR IGNORE")
+                from sqlalchemy import insert
+                stmt = insert(MarketCandle).values(records)
+                if self.db.bind.dialect.name == 'sqlite':
+                    stmt = stmt.prefix_with("OR IGNORE")
+                
+                result = self.db.execute(stmt)
+                self.db.commit()
+                return result.rowcount
+            except Exception as e:
+                self.db.rollback()
+                logger.error(f"Failed to store candles: {e}")
+                return 0
 
     def ingest_historical(self, symbol: str, interval: str, start_date: datetime, end_date: datetime):
         """Fetch and store historical data sequentially handling pagination."""

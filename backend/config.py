@@ -2,13 +2,17 @@ import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 
+BACKEND_DIR = Path(__file__).resolve().parent
+DEFAULT_DATABASE_URL = f"sqlite:///{BACKEND_DIR / 'quantive.db'}"
+
 class Settings(BaseSettings):
     # API & Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./aegis.db")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "aegis-hackathon-2026-secret")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "quantive-hackathon-2026-secret")
     
     # External Integrations
     SLACK_WEBHOOK_URL: Optional[str] = os.getenv("SLACK_WEBHOOK_URL")
