@@ -1,4 +1,4 @@
-# Quantive: AI-Native Autonomous Quant Strategy Orchestrator(Hackathon Focused)
+# Quantive: AI-Native Autonomous Quant Strategy Orchestrator
 
 
 **Quantive** is an end-to-end autonomous pipeline for high-fidelity quantitative strategy evaluation. It bridges the gap between idealistic backtests and live market reality using a **Multi-Agent "Judge" Architecture** and **Storm Simulation** infrastructure.
