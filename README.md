@@ -3,7 +3,6 @@
 
 **Quantive** is an end-to-end autonomous pipeline for high-fidelity quantitative strategy evaluation. It bridges the gap between idealistic backtests and live market reality using a **Multi-Agent "Judge" Architecture** and **Storm Simulation** infrastructure.
 
-Built for the **2026 Autonomous Quant Hackathon — Sponsored Track (Problem 03/04).**
 
 ---
 
@@ -83,4 +82,3 @@ Quantive is fully instrumented for the **Bonus Trace Track**. Every execution pr
 - **Complete Coverage**: Tracing includes validation, simulation, trade execution, and external side effects.
 
 ---
-*Built with ❤️ for the future of Autonomous Finance.*
